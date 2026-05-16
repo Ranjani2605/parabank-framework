@@ -7,6 +7,7 @@ from pages.bill_pay_page import BillPayPage
 from pages.find_transactions_page import FindTransactionsPage
 from pages.login_page import LoginPage
 from pages.open_new_account_page import OpenNewAccountPage
+from pages.request_loan_page import RequestLoanPage
 from pages.transfer_funds_page import TransferFundsPage
 from utils.config_reader import ConfigReader
 
@@ -97,5 +98,13 @@ def find_transactions_page(account_services) -> FindTransactionsPage:
     find_transactions = account_services.click_find_transaction()
     find_transactions.wait_for_page_to_load()
     return find_transactions
+
+
+@pytest.fixture()
+def request_loan_page(account_services) -> RequestLoanPage:
+    """Return the Request Loan page after login and navigation."""
+    request_loan = account_services.click_request_loan()
+    request_loan.wait_for_page_to_load()
+    return request_loan
 
 

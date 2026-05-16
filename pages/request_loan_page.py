@@ -1,130 +1,123 @@
+import logging
+import re
+
 from playwright.sync_api import Page, expect
 
 from pages.basepage import BasePage
 
-import logging
+logger = logging.getLogger("parabank")
 
-logger = logging.getLogger(__name__)
 
 class RequestLoanPage(BasePage):
+    """Page object for the ParaBank Request Loan page."""
 
-    loan_form = "#requestLoanForm"
-    header_loan_form_title = "#requestLoanForm h1.title"
+    form_container = "#requestLoanForm"
+    page_heading = "#requestLoanForm h1.title"
     loan_amount_input = "#amount"
     down_payment_input = "#downPayment"
     from_account_dropdown = "#fromAccountId"
     apply_now_button = "input.button[value='Apply Now']"
 
-
-    # Main section
-    loan_result = "#requestLoanResult"
-
-    # Header
-    loan_result_title = "h1.title"
-
-    #Loan details
+    result_container = "#requestLoanResult"
+    result_heading = "#requestLoanResult h1.title"
     loan_provider_name = "#loanProviderName"
     response_date = "#responseDate"
     loan_status = "#loanStatus"
 
-    #Approval section
-    loan_approved_section = "#loanRequestApproved"
-    approval_message = "#loanRequestApproved p"
-    new_account_id = "#newAccountId"
+    approved_container = "#loanRequestApproved"
+    approved_message = "#loanRequestApproved p"
+    new_account_link = "#newAccountId"
+
+    denied_container = "#loanRequestDenied"
+    denied_message = "#loanRequestDenied p"
 
     def __init__(self, page: Page) -> None:
         super().__init__(page)
-        self.page = page
 
-    # Loan form validation methods
+    def wait_for_page_to_load(self) -> None:
+        """Wait until the request loan form is ready for interaction."""
+        logger.info("Waiting for Request Loan page")
+        expect(self.page.locator(self.form_container)).to_be_visible()
+        expect(self.page.locator(self.page_heading)).to_have_text("Apply for a Loan")
+        expect(self.page.locator(self.loan_amount_input)).to_be_visible()
+        expect(self.page.locator(self.down_payment_input)).to_be_visible()
+        self.page.wait_for_function(
+            "document.querySelectorAll('#fromAccountId option').length > 0"
+        )
+        expect(self.page.locator(self.apply_now_button)).to_be_enabled()
 
-    def validate_loan_form_displayed(self) -> None:
-        """validate loan application form is displayed"""
+    def assert_request_loan_page_displayed(self) -> None:
+        """Validate the page heading, controls, and navigation."""
+        self.wait_for_page_to_load()
+        expect(self.page.locator(self.from_account_dropdown)).to_be_visible()
+        expect(self.page).to_have_url(re.compile(r".*/requestloan\.htm$"))
 
-        logger.info("Validating Loan Application form")
-        expect(self.page.is_visible(self.loan_form))
-        expect(self.header_loan_form_title).to_have_text("Apply for a Loan")
-        logger.info("Loan Application form validated successfully")
-
-    # Loan form action methods
+    def get_from_account_ids(self) -> list[str]:
+        """Return the available funding account ids."""
+        options = self.page.locator(f"{self.from_account_dropdown} option")
+        return [option.strip() for option in options.all_inner_texts() if option.strip()]
 
     def enter_loan_amount(self, amount: str) -> None:
-        """Enter loan amount input"""
-        logger.info(f"Entering loan amount: {amount}")
-        self.page.fill(self.loan_amount_input, amount)
+        """Enter the requested loan amount."""
+        self.fill(self.loan_amount_input, amount)
 
     def enter_down_payment(self, amount: str) -> None:
-        """Enter down payment input"""
-        logger.info(f"Selecting account number: {amount}")
-        self.page.fill(self.down_payment_input, amount)
+        """Enter the down payment amount."""
+        self.fill(self.down_payment_input, amount)
 
-    def select_from_account(self, account_number: str) -> None:
-        """Select account from dropdown"""
-        logger.info(f"Selecting account number: {account_number}")
-        self.page.select_option(self. from_account_dropdown)
+    def select_from_account(self, account_id: str) -> None:
+        """Select the funding account."""
+        self.select_dropdown(self.from_account_dropdown, account_id)
 
     def click_apply_now(self) -> None:
-        logger.info(f"Clicking apply now button")
+        """Submit the loan request form."""
         self.click(self.apply_now_button)
 
-    def apply_for_loan(self, loan_amount, down_payment, account_number) -> None:
-        """Complete loan application process"""
-        logger.info(f"Starting loan application process")
+    def submit_loan_request(
+        self, loan_amount: str, down_payment: str, from_account_id: str
+    ) -> None:
+        """Fill and submit a loan request."""
+        logger.info(
+            "Submitting loan request with amount %s and down payment %s",
+            loan_amount,
+            down_payment,
+        )
         self.enter_loan_amount(loan_amount)
         self.enter_down_payment(down_payment)
-        self.select_from_account(account_number)
+        self.select_from_account(from_account_id)
         self.click_apply_now()
-        logger.info("Loan application submitted successfully")
 
-    # Loan result validation methods
+    def assert_loan_request_processed(
+        self, expected_provider: str, expected_status: str
+    ) -> None:
+        """Validate the common loan result details."""
+        expect(self.page.locator(self.result_container)).to_be_visible()
+        expect(self.page.locator(self.result_heading)).to_have_text(
+            "Loan Request Processed"
+        )
+        expect(self.page.locator(self.loan_provider_name)).to_have_text(
+            expected_provider
+        )
+        expect(self.page.locator(self.loan_status)).to_have_text(expected_status)
+        expect(self.page.locator(self.response_date)).to_have_text(
+            re.compile(r"\d{2}-\d{2}-\d{4}")
+        )
 
-    def validate_loan_request_processed(self) -> None:
-        """Validate Loan request processed section"""
-        logger.info("Validating loan request processed page")
-        except(self.page.is_visible(self.loan_result))
-        expect(self.loan_result_title).to_have_text("Loan Request Processed")
-        logger.info("Loan request processed validated successfully")
+    def assert_loan_approved(self) -> None:
+        """Validate the approved loan state and new account details."""
+        expect(self.page.locator(self.approved_container)).to_be_visible()
+        expect(self.page.locator(self.approved_container)).to_contain_text(
+            "Congratulations, your loan has been approved."
+        )
+        expect(self.page.locator(self.new_account_link)).to_be_visible()
+        expect(self.page.locator(self.new_account_link)).to_have_text(
+            re.compile(r"\d+")
+        )
+        expect(self.page.locator(self.new_account_link)).to_have_attribute(
+            "href", re.compile(r"activity\.htm\?id=\d+")
+        )
 
-    def validate_loan_provider(self, expected_provider: str) -> None:
-        """Validating loan provider section"""
-        logger.info("Validating loan provider section")
-        expect(self.loan_provider_name).to_have_text(expected_provider)
-
-    def validate_loan_status(self, expected_status: str) -> None:
-        """Validate loan status section"""
-        logger.info("Validating loan status section")
-        expect(self.loan_status).to_have_text(expected_status)
-        logger.info(f"Loan status validated successfully: {expected_status}")
-
-
-    def validate_approval_message(self) -> None:
-        """Validate approval message section"""
-        logger.info("Validating approval message section")
-        pop_message = self.get_text(self.approval_message)
-        except(pop_message.to_contain_text("Congratulations, your loan has been approved"))
-        logger.info("Approval message validated successfully")
-
-    def validate_new_account_created(self) -> None:
-        """Validate new account is created"""
-        logger.info("validate newly created account")
-        expect(self.page.is_visible(self.new_account_id))
-        account_number = self.get_text(self.new_account_id)
-        assert account_number is not None, "Account number is None"
-        assert account_number.strip() != "", "Account number is empty"
-        assert (account_number.strip().isdigit()), "Account number is not numeric"
-        logger.info(f"New account created validated successfully: {account_number}")
-
-
-    def validate_new_account_link(self) -> None:
-        """Validate new account hyperlink"""
-        logger.info("Validating account hyperlink")
-        href_value = (self.new_account_id).__getattribute__("href")
-
-        assert href_value is not None
-        assert "id=" in href_value
-
-        logger.info(f"Account hyperlink validated: {href_value}")
-
-
-
-
+    def assert_loan_denied(self, expected_message: str) -> None:
+        """Validate the denied loan state and denial message."""
+        expect(self.page.locator(self.denied_container)).to_be_visible()
+        expect(self.page.locator(self.denied_message)).to_have_text(expected_message)

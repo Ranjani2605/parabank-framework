@@ -7,6 +7,7 @@ from pages.basepage import BasePage
 from pages.bill_pay_page import BillPayPage
 from pages.find_transactions_page import FindTransactionsPage
 from pages.open_new_account_page import OpenNewAccountPage
+from pages.request_loan_page import RequestLoanPage
 from pages.transfer_funds_page import TransferFundsPage
 
 logger = logging.getLogger("parabank")
@@ -56,9 +57,10 @@ class AccountServiceLink(BasePage):
         logger.info("Click update contact info")
         self.click(self.update_contact_info_link)
 
-    def click_request_loan(self) -> None:
+    def click_request_loan(self) -> RequestLoanPage:
         logger.info("Click request loan")
         self.click(self.request_loan_link)
+        return RequestLoanPage(self.page)
 
     def click_log_out(self) -> None:
         logger.info("Click log out")
